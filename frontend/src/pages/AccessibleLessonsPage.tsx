@@ -59,6 +59,11 @@ export const AccessibleLessonsPage: React.FC<AccessibleLessonsPageProps> = ({ na
 
   const activeSection: LessonSection | undefined = selectedLesson?.sections?.[activeSectionIndex];
 
+  // Auto-cancel speech synthesis when switching section, lesson, or simplified mode
+  useEffect(() => {
+    cancel();
+  }, [activeSectionIndex, selectedLesson?.id, showSimplified, cancel]);
+
   const handlePlayTTS = () => {
     if (!activeSection) return;
     if (isSpeaking) {
@@ -252,15 +257,29 @@ export const AccessibleLessonsPage: React.FC<AccessibleLessonsPageProps> = ({ na
                     <button
                       onClick={handlePlayTTS}
                       className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
-                        isSpeaking
-                          ? 'bg-rose-600 text-white'
+                        isSpeaking && !isPaused
+                          ? 'bg-rose-600 text-white animate-pulse'
+                          : isPaused
+                          ? 'bg-amber-600 text-white hover:bg-amber-700'
                           : 'bg-[#0A625D] text-white hover:bg-[#084F4B]'
                       }`}
+                      aria-label={
+                        isSpeaking && !isPaused
+                          ? 'Pause audio narration'
+                          : isPaused
+                          ? 'Resume audio narration'
+                          : 'Read section aloud'
+                      }
                     >
-                      {isSpeaking ? (
+                      {isSpeaking && !isPaused ? (
                         <>
                           <Pause className="w-3.5 h-3.5" />
                           <span>Pause Audio</span>
+                        </>
+                      ) : isPaused ? (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Resume Audio</span>
                         </>
                       ) : (
                         <>

@@ -1,5 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { CaptionSegment, Announcement, StudentQuestion, LiveSession, LessonSection } from '../types';
+import { playAudioCue } from '../utils/audioCues';
+
+export interface LiveReaction {
+  id: string;
+  emoji: string;
+  label: string;
+  sender?: string;
+  timestamp: number;
+}
+
+export interface CheckinPoll {
+  id: string;
+  question: string;
+  options: string[];
+  votes: Record<number, number>;
+  totalVotes: number;
+  isOpen: boolean;
+  myVote?: number;
+}
 
 interface LiveClassroomContextType {
   sessionId: string | null;
@@ -15,6 +34,8 @@ interface LiveClassroomContextType {
   latestAnnouncement: Announcement | null;
   setLatestAnnouncement: (a: Announcement | null) => void;
   isSessionActive: boolean;
+  reactions: LiveReaction[];
+  activeCheckinPoll: CheckinPoll | null;
   
   // Actions
   joinRoom: (sessionId: string, roomCode: string, role: 'teacher' | 'student', nickname?: string) => void;
@@ -28,6 +49,10 @@ interface LiveClassroomContextType {
   broadcastInterimCaption: (interimText: string) => void;
   correctCaption: (segmentId: string, correctedText: string) => Promise<void>;
   endSession: () => Promise<void>;
+  sendReaction: (emoji: string, label: string) => Promise<void>;
+  startCheckinPoll: (question: string, options: string[]) => Promise<void>;
+  voteCheckinPoll: (pollId: string, optionIndex: number) => Promise<void>;
+  closeCheckinPoll: (pollId: string) => Promise<void>;
 }
 
 const LiveClassroomContext = createContext<LiveClassroomContextType | undefined>(undefined);
@@ -46,6 +71,8 @@ export const LiveClassroomProvider: React.FC<{ children: React.ReactNode }> = ({
   const [questions, setQuestions] = useState<StudentQuestion[]>([]);
   const [latestAnnouncement, setLatestAnnouncement] = useState<Announcement | null>(null);
   const [isSessionActive, setIsSessionActive] = useState<boolean>(true);
+  const [reactions, setReactions] = useState<LiveReaction[]>([]);
+  const [activeCheckinPoll, setActiveCheckinPoll] = useState<CheckinPoll | null>(null);
 
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<any>(null);
@@ -141,21 +168,56 @@ export const LiveClassroomProvider: React.FC<{ children: React.ReactNode }> = ({
             if (data.announcement) {
               setAnnouncements(prev => [data.announcement, ...prev]);
               setLatestAnnouncement(data.announcement);
+              playAudioCue('alert');
             }
             break;
 
           case 'QUESTION_NEW':
             if (data.question) {
               setQuestions(prev => [data.question, ...prev]);
+              playAudioCue('chime');
             }
             break;
 
           case 'QUESTION_ACKNOWLEDGED':
             setQuestions(prev => prev.map(q => q.id === data.question_id ? { ...q, status: 'acknowledged' } : q));
+            playAudioCue('success');
             break;
 
           case 'QUESTION_ANSWERED':
             setQuestions(prev => prev.map(q => q.id === data.question_id ? { ...q, status: 'answered', response_text: data.response_text } : q));
+            playAudioCue('success');
+            break;
+
+          case 'REACTION_NEW':
+            if (data.reaction) {
+              setReactions(prev => [data.reaction, ...prev.slice(0, 19)]);
+              playAudioCue('pop');
+            }
+            break;
+
+          case 'CHECKIN_POLL_START':
+            if (data.poll) {
+              setActiveCheckinPoll(data.poll);
+              playAudioCue('alert');
+            }
+            break;
+
+          case 'CHECKIN_POLL_VOTE':
+            if (data.poll_id) {
+              setActiveCheckinPoll(prev => {
+                if (!prev || prev.id !== data.poll_id) return prev;
+                return {
+                  ...prev,
+                  votes: data.votes || prev.votes,
+                  totalVotes: data.totalVotes !== undefined ? data.totalVotes : prev.totalVotes + 1
+                };
+              });
+            }
+            break;
+
+          case 'CHECKIN_POLL_CLOSE':
+            setActiveCheckinPoll(null);
             break;
 
           case 'PARTICIPANT_UPDATE':
@@ -375,6 +437,73 @@ export const LiveClassroomProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsSessionActive(false);
   };
 
+  const sendReaction = async (emoji: string, label: string) => {
+    if (!sessionId) return;
+    playAudioCue('pop');
+    setReactions(prev => [{
+      id: `rx-${Date.now()}`,
+      emoji,
+      label,
+      sender: studentNickname,
+      timestamp: Date.now()
+    }, ...prev.slice(0, 19)]);
+
+    await fetch('/api/sessions/reaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        emoji,
+        label,
+        sender: studentNickname
+      })
+    });
+  };
+
+  const startCheckinPoll = async (question: string, options: string[]) => {
+    if (!sessionId) return;
+    playAudioCue('chime');
+    const token = localStorage.getItem('setu_auth_token');
+    const res = await fetch('/api/sessions/checkin-poll', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        question,
+        options
+      })
+    });
+    if (res.ok) {
+      const poll = await res.json();
+      setActiveCheckinPoll(poll);
+    }
+  };
+
+  const voteCheckinPoll = async (pollId: string, optionIndex: number) => {
+    playAudioCue('chime');
+    setActiveCheckinPoll(prev => prev && prev.id === pollId ? { ...prev, myVote: optionIndex } : prev);
+    await fetch('/api/sessions/checkin-vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        poll_id: pollId,
+        option_index: optionIndex
+      })
+    });
+  };
+
+  const closeCheckinPoll = async (pollId: string) => {
+    setActiveCheckinPoll(null);
+    await fetch('/api/sessions/checkin-close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ poll_id: pollId })
+    });
+  };
+
   return (
     <LiveClassroomContext.Provider value={{
       sessionId,
@@ -390,6 +519,8 @@ export const LiveClassroomProvider: React.FC<{ children: React.ReactNode }> = ({
       latestAnnouncement,
       setLatestAnnouncement,
       isSessionActive,
+      reactions,
+      activeCheckinPoll,
       joinRoom,
       leaveRoom,
       syncSection,
@@ -400,7 +531,11 @@ export const LiveClassroomProvider: React.FC<{ children: React.ReactNode }> = ({
       postCaption,
       broadcastInterimCaption,
       correctCaption,
-      endSession
+      endSession,
+      sendReaction,
+      startCheckinPoll,
+      voteCheckinPoll,
+      closeCheckinPoll
     }}>
       {children}
     </LiveClassroomContext.Provider>

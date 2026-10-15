@@ -2,6 +2,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { setupMockBackend } from './mockBackend'
+
+// Initialize autonomous client-side backend engine
+setupMockBackend()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -8,7 +8,8 @@ import {
   Plus,
   Users,
   Play,
-  ArrowRight
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 
 interface TeacherDashboardProps {
@@ -120,7 +121,14 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ navigate }) 
             className="btn-ios-secondary text-xs"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            <span>Add Lesson</span>
+            <span>Manual Editor</span>
+          </button>
+          <button
+            onClick={() => navigate('lesson-studio', { classId: selectedClassId })}
+            className="btn-ios-primary text-xs"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Lesson Studio</span>
           </button>
         </div>
       </div>
@@ -277,12 +285,22 @@ export const TeacherDashboard: React.FC<TeacherDashboardProps> = ({ navigate }) 
               <BookOpen className="w-4 h-4 text-blue-600" />
               <span>Lessons ({lessons.length})</span>
             </h3>
-            <button
-              onClick={() => navigate('lesson-editor')}
-              className="text-xs text-blue-600 font-semibold hover:underline"
-            >
-              New
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('lesson-studio')}
+                className="text-xs text-[#FF6B4A] font-bold hover:underline flex items-center gap-1"
+              >
+                <Sparkles className="w-3 h-3" />
+                <span>AI Studio</span>
+              </button>
+              <span className="text-slate-300">•</span>
+              <button
+                onClick={() => navigate('lesson-editor')}
+                className="text-xs text-blue-600 font-semibold hover:underline"
+              >
+                Manual
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">

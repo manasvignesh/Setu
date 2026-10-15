@@ -1,5 +1,6 @@
 import React from 'react';
 import { BridgeMotif } from './BridgeMotif';
+import { ReadingGuide } from './ReadingGuide';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -10,6 +11,7 @@ interface AppShellProps {
 export const AppShell: React.FC<AppShellProps> = ({ children, currentRoute, navigate }) => {
   return (
     <div className="min-h-screen flex flex-col bg-[#FAFAF8] text-[#1A1A2E]">
+      <ReadingGuide />
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
@@ -63,10 +65,10 @@ export const AppShell: React.FC<AppShellProps> = ({ children, currentRoute, navi
               Join Classroom
             </button>
             <button
-              onClick={() => navigate('login')}
+              onClick={() => navigate('teacher-dashboard')}
               className="text-slate-700 hover:text-[#0D7377] hover:underline"
             >
-              Teacher Sign In
+              Teacher Studio
             </button>
           </div>
         </div>

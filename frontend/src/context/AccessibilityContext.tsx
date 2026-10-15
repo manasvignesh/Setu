@@ -15,6 +15,10 @@ interface AccessibilityContextType {
   setReducedMotion: (enabled: boolean) => void;
   language: AppLanguage;
   setLanguage: (lang: AppLanguage) => void;
+  readingGuide: boolean;
+  setReadingGuide: (enabled: boolean) => void;
+  soundEffects: boolean;
+  setSoundEffects: (enabled: boolean) => void;
   t: typeof translations.en;
 }
 
@@ -45,6 +49,22 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
   const [language, setLanguage] = useState<AppLanguage>(() => {
     return (localStorage.getItem('setu_pref_lang') as AppLanguage) || 'en';
   });
+
+  const [readingGuide, setReadingGuide] = useState<boolean>(() => {
+    return localStorage.getItem('setu_pref_reading_guide') === 'true';
+  });
+
+  const [soundEffects, setSoundEffects] = useState<boolean>(() => {
+    return localStorage.getItem('setu_pref_sound_effects') !== 'false';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('setu_pref_reading_guide', String(readingGuide));
+  }, [readingGuide]);
+
+  useEffect(() => {
+    localStorage.setItem('setu_pref_sound_effects', String(soundEffects));
+  }, [soundEffects]);
 
   useEffect(() => {
     localStorage.setItem('setu_pref_theme', theme);
@@ -103,6 +123,8 @@ export const AccessibilityProvider: React.FC<{ children: React.ReactNode }> = ({
       speechRate, setSpeechRate,
       reducedMotion, setReducedMotion,
       language, setLanguage,
+      readingGuide, setReadingGuide,
+      soundEffects, setSoundEffects,
       t: currentTranslations
     }}>
       {children}

@@ -6,7 +6,9 @@ export interface UseSpeechSynthesisReturn {
   pause: () => void;
   resume: () => void;
   cancel: () => void;
+  toggle: (text: string, langOverride?: string) => void;
   isSpeaking: boolean;
+  isPlaying: boolean;
   isPaused: boolean;
   isSupported: boolean;
   activeWord: string;
@@ -30,13 +32,21 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
 
   const pause = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.pause();
+    try {
+      window.speechSynthesis.pause();
+    } catch (e) {
+      console.warn('speechSynthesis pause error:', e);
+    }
     setIsPaused(true);
   }, [isSupported]);
 
   const resume = useCallback(() => {
     if (!isSupported) return;
-    window.speechSynthesis.resume();
+    try {
+      window.speechSynthesis.resume();
+    } catch (e) {
+      console.warn('speechSynthesis resume error:', e);
+    }
     setIsPaused(false);
   }, [isSupported]);
 
@@ -65,6 +75,14 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
       setIsPaused(false);
     };
 
+    utterance.onpause = () => {
+      setIsPaused(true);
+    };
+
+    utterance.onresume = () => {
+      setIsPaused(false);
+    };
+
     utterance.onend = () => {
       setIsSpeaking(false);
       setIsPaused(false);
@@ -89,6 +107,19 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     window.speechSynthesis.speak(utterance);
   }, [cancel, isSupported, language, speechRate]);
 
+  const toggle = useCallback((text: string, langOverride?: string) => {
+    if (!isSupported) return;
+    if (isSpeaking) {
+      if (isPaused) {
+        resume();
+      } else {
+        pause();
+      }
+    } else {
+      speak(text, langOverride);
+    }
+  }, [isSupported, isSpeaking, isPaused, resume, pause, speak]);
+
   // Clean up on unmount
   useEffect(() => {
     return () => {
@@ -103,7 +134,9 @@ export const useSpeechSynthesis = (): UseSpeechSynthesisReturn => {
     pause,
     resume,
     cancel,
+    toggle,
     isSpeaking,
+    isPlaying: isSpeaking && !isPaused,
     isPaused,
     isSupported,
     activeWord

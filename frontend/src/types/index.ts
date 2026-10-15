@@ -137,3 +137,31 @@ export type AccessibilityTheme = 'standard' | 'high-contrast' | 'dark';
 export type FontSize = 'normal' | 'large' | 'extra-large';
 export type AppLanguage = 'en' | 'hi' | 'te';
 export type StudentMode = 'read' | 'listen' | 'respond' | 'follow';
+
+export interface StudioUploadResult {
+  filename: string;
+  file_type: 'pdf' | 'image';
+  page_count: number;
+  extracted_text: string;
+  has_text: boolean;
+  image_url?: string | null;
+  error?: string | null;
+  ocr_available: boolean;
+}
+
+export interface StudioVocabularyItem {
+  term: string;
+  definition: string;
+}
+
+export interface StudioGenerateResult {
+  title: string;
+  simplified_explanation: string;
+  key_points: string[];
+  vocabulary: StudioVocabularyItem[];
+  audio_ready_script: string;
+  step_by_step_sections: LessonSection[];
+  diagram_description?: string | null;
+  provider_used: string;
+}
+

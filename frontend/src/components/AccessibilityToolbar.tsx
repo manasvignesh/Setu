@@ -9,7 +9,9 @@ export const AccessibilityToolbar: React.FC = () => {
     fontSize, setFontSize,
     dyslexiaFont, setDyslexiaFont,
     speechRate, setSpeechRate,
-    language, setLanguage
+    language, setLanguage,
+    readingGuide, setReadingGuide,
+    soundEffects, setSoundEffects
   } = useAccessibility();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -148,6 +150,50 @@ export const AccessibilityToolbar: React.FC = () => {
                 <span
                   className={`inline-block w-4 h-4 rounded-full bg-white transition-transform ${
                     dyslexiaFont ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Reading Guide Ruler Toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <div className="text-xs font-bold text-slate-800">Reading Line Guide</div>
+                <div className="text-[10px] text-slate-500">Highlights active text line with cursor</div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={readingGuide}
+                onClick={() => setReadingGuide(!readingGuide)}
+                className={`w-11 h-6 rounded-full transition-colors relative ${
+                  readingGuide ? 'bg-[#0D7377]' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block w-4 h-4 rounded-full bg-white transition-transform ${
+                    readingGuide ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Sound Effects Toggle */}
+            <div className="flex items-center justify-between pt-1">
+              <div>
+                <div className="text-xs font-bold text-slate-800">Auditory Cues & Chimes</div>
+                <div className="text-[10px] text-slate-500">Soft feedback on actions & AAC</div>
+              </div>
+              <button
+                role="switch"
+                aria-checked={soundEffects}
+                onClick={() => setSoundEffects(!soundEffects)}
+                className={`w-11 h-6 rounded-full transition-colors relative ${
+                  soundEffects ? 'bg-[#0D7377]' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block w-4 h-4 rounded-full bg-white transition-transform ${
+                    soundEffects ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>

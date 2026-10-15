@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import {
   Ear,
   Eye,
@@ -10,7 +11,9 @@ import {
   Rocket,
   Heart,
   ArrowRight,
-  BookOpen
+  BookOpen,
+  GraduationCap,
+  ShieldCheck
 } from 'lucide-react';
 
 interface LandingPageProps {
@@ -18,6 +21,7 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
+  const { selectDemoRole } = useAuth();
   const disabilityCategories = [
     {
       name: 'Hearing Support',
@@ -131,24 +135,43 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
             SETU adapts to your unique abilities — hearing, vision, motor, cognitive, or speech. Learn your way.
           </p>
 
-          {/* Two Buttons */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3.5 sm:gap-4">
+          {/* Direct Dummy Role Entry Buttons */}
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-3.5">
             <button
-              onClick={() => navigate('signup')}
-              aria-label="Get Started with SETU — It's Free"
-              className="w-full sm:w-auto min-h-[48px] h-12 px-8 rounded-full bg-[#FF6B4A] hover:bg-[#e05636] active:scale-[0.98] text-white font-semibold text-base shadow-md shadow-[#FF6B4A]/25 transition-all inline-flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-[#FF6B4A]"
+              onClick={() => {
+                selectDemoRole('teacher');
+                navigate('teacher-dashboard');
+              }}
+              aria-label="Enter Teacher Studio as Anita Sharma"
+              className="w-full sm:w-auto min-h-[48px] h-12 px-7 rounded-full bg-[#FF6B4A] hover:bg-[#e05636] active:scale-[0.98] text-white font-semibold text-sm shadow-md shadow-[#FF6B4A]/25 transition-all inline-flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-[#FF6B4A]"
             >
-              <span>Get Started — It's Free</span>
-              <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <BookOpen className="w-4 h-4" aria-hidden="true" />
+              <span>Enter Teacher Studio</span>
+              <ArrowRight className="w-4 h-4 ml-0.5" aria-hidden="true" />
             </button>
 
             <button
-              onClick={() => navigate('login')}
-              aria-label="Teacher sign in or studio portal"
-              className="w-full sm:w-auto min-h-[48px] h-12 px-7 rounded-full bg-white hover:bg-slate-100/80 active:scale-[0.98] text-[#1A1A2E] font-medium text-base border border-black/[0.08] shadow-xs transition-all inline-flex items-center justify-center gap-2"
+              onClick={() => {
+                selectDemoRole('student');
+                navigate('dashboard');
+              }}
+              aria-label="Enter Student Dashboard as Aarav Sharma"
+              className="w-full sm:w-auto min-h-[48px] h-12 px-7 rounded-full bg-white hover:bg-slate-100/80 active:scale-[0.98] text-[#1A1A2E] font-semibold text-sm border border-black/[0.08] shadow-xs transition-all inline-flex items-center justify-center gap-2"
             >
-              <BookOpen className="w-4 h-4 text-[#6B7280]" aria-hidden="true" />
-              <span>I'm a Teacher</span>
+              <GraduationCap className="w-4 h-4 text-[#0D7377]" aria-hidden="true" />
+              <span>Enter Student Dashboard</span>
+            </button>
+
+            <button
+              onClick={() => {
+                selectDemoRole('coordinator');
+                navigate('coordinator');
+              }}
+              aria-label="Enter School Coordinator Portal as Dr. Sunita Rao"
+              className="w-full sm:w-auto min-h-[48px] h-12 px-6 rounded-full bg-white hover:bg-slate-100/80 active:scale-[0.98] text-[#1A1A2E] font-semibold text-sm border border-black/[0.08] shadow-xs transition-all inline-flex items-center justify-center gap-2"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#4A90D9]" aria-hidden="true" />
+              <span>Coordinator Portal</span>
             </button>
           </div>
         </section>
@@ -253,16 +276,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ navigate }) => {
               Ready to learn without barriers?
             </h2>
             <p className="text-white/90 text-sm sm:text-base max-w-lg">
-              Set up your profile in under 2 minutes. Free for students and educators everywhere.
+              Explore teacher lesson creation, live accessible classroom, and student boards directly with instant demo access.
             </p>
           </div>
 
           <button
-            onClick={() => navigate('signup')}
-            aria-label="Join SETU Free"
+            onClick={() => {
+              selectDemoRole('teacher');
+              navigate('teacher-dashboard');
+            }}
+            aria-label="Launch Teacher Studio"
             className="min-h-[48px] h-12 px-8 rounded-full bg-white hover:bg-[#FAFAF8] text-[#FF6B4A] font-bold text-base shadow-sm transition-transform active:scale-[0.98] whitespace-nowrap inline-flex items-center justify-center gap-2 focus-visible:outline-2 focus-visible:outline-white"
           >
-            <span>Join SETU Free</span>
+            <span>Launch Teacher Studio</span>
             <ArrowRight className="w-4 h-4 text-[#FF6B4A]" aria-hidden="true" />
           </button>
         </section>

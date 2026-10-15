@@ -1,8 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAccessibility } from '../context/AccessibilityContext';
 import { useLiveClassroom } from '../context/LiveClassroomContext';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { QRCodeModal } from '../components/QRCodeModal';
+import { AudioWaveVisualizer } from '../components/AudioWaveVisualizer';
+import { CheckinPollModal } from '../components/CheckinPollModal';
+import { LiveReactionsOverlay } from '../components/LiveReactionsOverlay';
 import type { LiveSession, Lesson } from '../types';
 import {
   Mic,
@@ -18,7 +21,12 @@ import {
   BookOpen,
   LogOut,
   Send,
-  AlertCircle
+  AlertCircle,
+  Clock,
+  Download,
+  BarChart2,
+  PlayCircle,
+  Sparkles
 } from 'lucide-react';
 
 interface TeacherLiveClassroomProps {
@@ -35,6 +43,8 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
     captions,
     questions,
     currentSectionIndex,
+    reactions,
+    activeCheckinPoll,
     syncSection,
     publishAnnouncement,
     acknowledgeQuestion,
@@ -43,13 +53,17 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
     broadcastInterimCaption,
     correctCaption,
     endSession,
-    joinRoom
+    joinRoom,
+    startCheckinPoll
   } = useLiveClassroom();
 
   const [activeLesson, setActiveLesson] = useState<Lesson | null>(sessionData?.lesson || null);
   const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [editingCaptionId, setEditingCaptionId] = useState<string | null>(null);
   const [editingCaptionText, setEditingCaptionText] = useState('');
+  const [isSimulatingSpeech, setIsSimulatingSpeech] = useState(false);
+  const [showPollCreator, setShowPollCreator] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Manual caption fallback input
   const [manualCaptionInput, setManualCaptionInput] = useState('');
@@ -164,6 +178,72 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
     setResponseText('');
   };
 
+  // Classroom session stopwatch timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setElapsedSeconds(s => s + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTimer = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSimulateSpeech = async () => {
+    if (isSimulatingSpeech) return;
+    setIsSimulatingSpeech(true);
+    const sampleSentences = [
+      "Now observe how Earth's tilted axis at 23.5 degrees creates our four distinct seasonal cycles.",
+      "Notice that the gravitational attraction of the Sun keeps all eight planetary bodies in stable elliptical orbits.",
+      "When one hemisphere leans toward the Sun, it receives concentrated solar radiation, producing summer."
+    ];
+
+    for (let i = 0; i < sampleSentences.length; i++) {
+      broadcastInterimCaption(sampleSentences[i].slice(0, 30) + "...");
+      await new Promise(r => setTimeout(r, 900));
+      await postCaption(sampleSentences[i], language);
+      await new Promise(r => setTimeout(r, 600));
+    }
+    setIsSimulatingSpeech(false);
+  };
+
+  const handleExportNotes = () => {
+    const lines = [
+      `SETU INCLUSIVE CLASSROOM TRANSCRIPT & NOTES`,
+      `Room Code: ${roomCode || 'SETU'}`,
+      `Lesson: ${activeLesson?.title || 'Science Lesson'}`,
+      `Date: ${new Date().toLocaleDateString()} - Duration: ${formatTimer(elapsedSeconds)}`,
+      `----------------------------------------\n`,
+      `LIVE CAPTIONS STREAM:`,
+      ...captions.map((c, i) => `[${i + 1}] ${c.text}`),
+      `\n----------------------------------------`,
+      `STUDENT AAC INQUIRIES & QUESTIONS:`,
+      ...questions.map(q => `• ${q.student_nickname}: "${q.content}" [Status: ${q.status}]${q.response_text ? ` -> Reply: "${q.response_text}"` : ''}`)
+    ];
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SETU_Class_${roomCode || 'Notes'}_${new Date().toISOString().slice(0, 10)}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleLaunchPollPreset = (preset: 'follow' | 'speed' | 'quiz') => {
+    if (preset === 'follow') {
+      startCheckinPoll('Comprehension Check: Are you following this concept?', ['👍 Yes, clear!', '🤔 Need a quick recap', '✋ I have a question']);
+    } else if (preset === 'speed') {
+      startCheckinPoll('Pacing Check: How is the teaching speed?', ['🐇 A bit too fast', '🎯 Just right', '🐢 Please speak slower']);
+    } else {
+      startCheckinPoll('Quiz Check: Ready for the practice question?', ['🚀 Ready!', '⏳ Need 2 more minutes', '📖 Reviewing cards']);
+    }
+    setShowPollCreator(false);
+  };
+
   const handleEndClass = async () => {
     if (window.confirm('Conclude this live classroom session?')) {
       stopListening();
@@ -174,17 +254,24 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* Floating Reactions Layer & Active Poll for Teacher */}
+      <LiveReactionsOverlay showBar={false} />
+      <CheckinPollModal isTeacher={true} />
       
       {/* iOS Top Bar */}
       <div className="ios-card p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Live Classroom
+              Live Classroom Cockpit
             </h1>
-            <span className="badge-ios-blue text-xs">
+            <span className="badge-ios-blue text-xs font-mono font-bold">
               Room: {roomCode || sessionData?.room_code || 'SETU'}
             </span>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-xs font-mono font-semibold text-slate-600">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>{formatTimer(elapsedSeconds)}</span>
+            </div>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             {activeLesson?.title || 'Interactive Lesson'}
@@ -197,12 +284,29 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
             <span>{participantCount} Connected</span>
           </div>
 
+          {reactions.length > 0 && (
+            <div className="px-3 py-1.5 rounded-full bg-[#FFF0EC] text-xs font-bold text-[#FF6B4A] flex items-center gap-1 animate-pulse">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>{reactions.length} Pulse{reactions.length === 1 ? '' : 's'}</span>
+            </div>
+          )}
+
           <button
             onClick={() => setIsQRModalOpen(true)}
             className="btn-ios-secondary text-xs py-1.5 px-3"
+            title="Project Room Code"
           >
             <QrCode className="w-3.5 h-3.5 text-blue-600" />
-            <span>QR Code</span>
+            <span>Project QR</span>
+          </button>
+
+          <button
+            onClick={() => setShowPollCreator(!showPollCreator)}
+            className="btn-ios-secondary text-xs py-1.5 px-3"
+            title="Launch quick student comprehension check"
+          >
+            <BarChart2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Quick Check-in</span>
           </button>
 
           <button
@@ -214,6 +318,15 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
           </button>
 
           <button
+            onClick={handleExportNotes}
+            className="btn-ios-secondary text-xs py-1.5 px-3"
+            title="Export session transcript and AAC log"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <span>Export Notes</span>
+          </button>
+
+          <button
             onClick={handleEndClass}
             className="py-1.5 px-3 rounded-full text-xs font-semibold bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
           >
@@ -221,6 +334,50 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
           </button>
         </div>
       </div>
+
+      {/* Quick Check-in Poll Selector Popup */}
+      {showPollCreator && (
+        <div className="ios-card p-4 border border-emerald-200 bg-emerald-50/40 animate-slide-down">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+              <BarChart2 className="w-4 h-4 text-emerald-600" />
+              <span>Broadcast a Live Comprehension Check-in to All Students</span>
+            </h3>
+            <button
+              onClick={() => setShowPollCreator(false)}
+              className="text-xs text-slate-400 hover:text-slate-700 font-bold"
+            >
+              Cancel
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-600 mb-3">
+            Students receive an instant accessible one-tap prompt on their screens, allowing you to gauge classroom pacing without calling anyone out.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <button
+              onClick={() => handleLaunchPollPreset('follow')}
+              className="p-3 rounded-xl bg-white border border-emerald-200 hover:border-emerald-400 text-left text-xs transition shadow-xs"
+            >
+              <div className="font-bold text-slate-900">Are you following?</div>
+              <div className="text-[11px] text-slate-500 mt-1">Options: Yes / Need Recap / Question</div>
+            </button>
+            <button
+              onClick={() => handleLaunchPollPreset('speed')}
+              className="p-3 rounded-xl bg-white border border-emerald-200 hover:border-emerald-400 text-left text-xs transition shadow-xs"
+            >
+              <div className="font-bold text-slate-900">Pacing Check</div>
+              <div className="text-[11px] text-slate-500 mt-1">Options: Too fast / Just right / Slower</div>
+            </button>
+            <button
+              onClick={() => handleLaunchPollPreset('quiz')}
+              className="p-3 rounded-xl bg-white border border-emerald-200 hover:border-emerald-400 text-left text-xs transition shadow-xs"
+            >
+              <div className="font-bold text-slate-900">Ready for Quiz?</div>
+              <div className="text-[11px] text-slate-500 mt-1">Options: Ready / Need 2 Mins / Review</div>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Grid: Mic & Captions on Left, Steps & AAC on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -230,7 +387,7 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
           
           {/* iOS Clean Mic Widget */}
           <div className="ios-card p-6 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
                   isListening
@@ -240,8 +397,11 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
                   {isListening ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
                 </div>
                 <div>
-                  <div className="text-xs font-semibold text-slate-500">
-                    {isListening ? 'MICROPHONE ACTIVE' : 'STANDBY'}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-slate-500">
+                      {isListening ? 'MICROPHONE ACTIVE' : 'STANDBY'}
+                    </span>
+                    <AudioWaveVisualizer isActive={isListening} />
                   </div>
                   <h2 className="text-base font-bold text-slate-900">
                     {isListening ? 'Streaming live speech...' : 'Press Start to transcribe lecture'}
@@ -249,16 +409,28 @@ export const TeacherLiveClassroom: React.FC<TeacherLiveClassroomProps> = ({ navi
                 </div>
               </div>
 
-              <button
-                onClick={handleToggleMic}
-                className={`text-xs py-2 px-5 font-semibold transition-all ${
-                  isListening
-                    ? 'rounded-full bg-red-600 text-white hover:bg-red-700'
-                    : 'btn-ios-primary'
-                }`}
-              >
-                {isListening ? 'Stop Mic' : 'Start Speech'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSimulateSpeech}
+                  disabled={isSimulatingSpeech}
+                  className="btn-ios-secondary text-xs py-2 px-3 flex items-center gap-1.5"
+                  title="Simulate speech to test live transcription without microphone"
+                >
+                  <PlayCircle className="w-4 h-4 text-purple-600" />
+                  <span>{isSimulatingSpeech ? 'Streaming Demo...' : 'Demo Speech'}</span>
+                </button>
+
+                <button
+                  onClick={handleToggleMic}
+                  className={`text-xs py-2 px-5 font-semibold transition-all ${
+                    isListening
+                      ? 'rounded-full bg-red-600 text-white hover:bg-red-700'
+                      : 'btn-ios-primary'
+                  }`}
+                >
+                  {isListening ? 'Stop Mic' : 'Start Speech'}
+                </button>
+              </div>
             </div>
 
             {/* Interim Transcript Live Bubble */}

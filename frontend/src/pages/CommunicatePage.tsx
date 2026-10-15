@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 import { useAccessibility } from '../context/AccessibilityContext';
+import { playAudioCue } from '../utils/audioCues';
 import {
   Volume2,
   VolumeX,
@@ -15,7 +16,11 @@ import {
   AlertCircle,
   Smile,
   Hand,
-  Clock
+  Clock,
+  Search,
+  Play,
+  RotateCcw,
+  X
 } from 'lucide-react';
 
 interface AACPhrase {
@@ -67,6 +72,8 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
   const [phrases, setPhrases] = useState<AACPhrase[]>(DEFAULT_PHRASES);
   const [activeSpeakingText, setActiveSpeakingText] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sentenceStrip, setSentenceStrip] = useState<AACPhrase[]>([]);
 
   // Custom phrase creation form state
   const [showAddModal, setShowAddModal] = useState(false);
@@ -89,11 +96,39 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
 
   const handleSpeakPhrase = (phrase: AACPhrase) => {
     cancel();
+    playAudioCue('chime');
     setActiveSpeakingText(phrase.text);
     speak(phrase.text);
     setTimeout(() => {
       setActiveSpeakingText(null);
     }, 2500);
+  };
+
+  const handleAddToStrip = (phrase: AACPhrase) => {
+    playAudioCue('pop');
+    setSentenceStrip(prev => [...prev, phrase]);
+  };
+
+  const handleRemoveFromStrip = (index: number) => {
+    playAudioCue('pop');
+    setSentenceStrip(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleClearStrip = () => {
+    playAudioCue('pop');
+    setSentenceStrip([]);
+  };
+
+  const handleSpeakSentenceStrip = () => {
+    if (sentenceStrip.length === 0) return;
+    cancel();
+    playAudioCue('chime');
+    const fullSentence = sentenceStrip.map(p => p.text).join(' ');
+    setActiveSpeakingText(fullSentence);
+    speak(fullSentence);
+    setTimeout(() => {
+      setActiveSpeakingText(null);
+    }, 3500);
   };
 
   const handleCopyPhrase = (e: React.MouseEvent, phrase: AACPhrase) => {
@@ -117,6 +152,7 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
 
     const updated = [...phrases, newPhrase];
     setPhrases(updated);
+    playAudioCue('success');
 
     // Save custom phrases to localStorage
     const customList = updated.filter(p => p.isCustom);
@@ -134,9 +170,11 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
     localStorage.setItem('setu_custom_aac_phrases', JSON.stringify(customList));
   };
 
-  const filteredPhrases = activeCategory === 'all'
-    ? phrases
-    : phrases.filter(p => p.category === activeCategory);
+  const filteredPhrases = phrases.filter(p => {
+    const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
+    const matchesSearch = !searchQuery.trim() || p.text.toLowerCase().includes(searchQuery.toLowerCase().trim());
+    return matchesCategory && matchesSearch;
+  });
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-[#F7F9F8] text-[#19324A] p-4 sm:p-6 flex flex-col">
@@ -212,33 +250,111 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
           </div>
         )}
 
-        {/* Category Tabs */}
-        <div className="my-4 flex flex-wrap gap-2 pb-1 border-b border-slate-200">
-          {[
-            { id: 'all', label: 'All Phrases', icon: Sparkles },
-            { id: 'needs', label: 'Needs & Comfort', icon: AlertCircle },
-            { id: 'questions', label: 'Questions', icon: HelpCircle },
-            { id: 'participation', label: 'Classroom Participation', icon: Hand },
-            { id: 'social', label: 'Daily & Social', icon: Smile }
-          ].map((cat) => {
-            const Icon = cat.icon;
-            const isActive = activeCategory === cat.id;
-            return (
+        {/* Interactive Sentence Strip Composer */}
+        <div className="my-3 p-3.5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex-1 flex items-center gap-1.5 flex-wrap min-h-[42px] p-2 rounded-xl bg-slate-50 border border-slate-200">
+            {sentenceStrip.length === 0 ? (
+              <span className="text-xs text-slate-400 italic px-2">
+                Tap the "+ Strip" button on any card below to build a full spoken phrase here...
+              </span>
+            ) : (
+              sentenceStrip.map((item, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#E8F5F2] text-[#0A625D] text-xs font-bold border border-[#0A625D]/20 shadow-2xs animate-scale-up"
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.text}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveFromStrip(idx);
+                    }}
+                    className="hover:text-red-500 rounded-full p-0.5 ml-0.5"
+                    title="Remove token"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleSpeakSentenceStrip}
+              disabled={sentenceStrip.length === 0}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition ${
+                sentenceStrip.length > 0
+                  ? 'bg-[#FF6B4A] hover:bg-[#E85A3A] text-white shadow-xs cursor-pointer'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              <Play className="w-3.5 h-3.5 fill-current" />
+              <span>Speak Sentence ({sentenceStrip.length})</span>
+            </button>
+
+            {sentenceStrip.length > 0 && (
               <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id as any)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 border transition-all ${
-                  isActive
-                    ? 'bg-[#19324A] text-white border-[#19324A] shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                }`}
-                aria-pressed={isActive}
+                onClick={handleClearStrip}
+                className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-red-500 hover:bg-slate-50 transition text-xs"
+                title="Clear sentence strip"
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-300' : 'text-slate-500'}`} />
-                <span>{cat.label}</span>
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
-            );
-          })}
+            )}
+          </div>
+        </div>
+
+        {/* Category Tabs & Search Bar */}
+        <div className="my-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'all', label: 'All', icon: Sparkles },
+              { id: 'needs', label: 'Needs & Comfort', icon: AlertCircle },
+              { id: 'questions', label: 'Questions', icon: HelpCircle },
+              { id: 'participation', label: 'Participation', icon: Hand },
+              { id: 'social', label: 'Social & Daily', icon: Smile }
+            ].map((cat) => {
+              const Icon = cat.icon;
+              const isActive = activeCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all ${
+                    isActive
+                      ? 'bg-[#19324A] text-white border-[#19324A] shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-300' : 'text-slate-500'}`} />
+                  <span>{cat.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search Box */}
+          <div className="relative w-full md:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search phrases..."
+              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-300 bg-white focus:outline-none focus:border-[#0A625D] text-slate-800"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Phrase Tiles Grid */}
@@ -257,22 +373,29 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
                     handleSpeakPhrase(phrase);
                   }
                 }}
-                className={`p-4 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer relative group focus:outline-none focus:ring-4 focus:ring-[#0A625D]/30 min-h-[110px] ${
+                className={`p-4 rounded-2xl border text-left flex flex-col justify-between transition-all cursor-pointer relative group focus:outline-none focus:ring-4 focus:ring-[#0A625D]/30 min-h-[115px] ${
                   isCurrentlySpeaking
                     ? 'bg-[#E8F5F2] border-[#0A625D] shadow-md ring-2 ring-[#0A625D]'
                     : 'bg-white border-slate-200 hover:border-[#0A625D] hover:shadow-md'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-2xl select-none" aria-hidden="true">
-                    {phrase.icon}
-                  </span>
-                  <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                  <span className="text-2xl">{phrase.icon}</span>
+                  <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddToStrip(phrase);
+                      }}
+                      className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-[#E8F5F2] hover:text-[#0A625D] text-[11px] font-bold text-slate-600 transition"
+                      title="Add to Sentence Strip"
+                    >
+                      + Strip
+                    </button>
                     <button
                       onClick={(e) => handleCopyPhrase(e, phrase)}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600"
-                      title="Copy phrase"
-                      aria-label="Copy phrase text"
+                      className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                      title="Copy text"
                     >
                       {copiedId === phrase.id ? (
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -283,9 +406,8 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
                     {phrase.isCustom && (
                       <button
                         onClick={(e) => handleDeleteCustomPhrase(e, phrase.id)}
-                        className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-600"
+                        className="p-1 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600"
                         title="Delete custom phrase"
-                        aria-label="Delete custom phrase"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -293,14 +415,13 @@ export const CommunicatePage: React.FC<CommunicatePageProps> = ({ navigate }) =>
                   </div>
                 </div>
 
-                <div className="mt-3">
-                  <p className="text-base font-bold text-[#19324A] leading-snug">
+                <div className="mt-2">
+                  <span className="text-sm font-bold text-slate-900 leading-snug block">
                     {phrase.text}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-2 text-[11px] font-semibold text-[#0A625D]">
-                    <Volume2 className="w-3 h-3" />
-                    <span>Tap to speak</span>
-                  </div>
+                  </span>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 mt-1 block">
+                    {phrase.category}
+                  </span>
                 </div>
               </div>
             );

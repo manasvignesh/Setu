@@ -10,7 +10,8 @@ import {
   Image as ImageIcon,
   Volume2,
   BookOpen,
-  Check
+  Check,
+  Sparkles
 } from 'lucide-react';
 
 interface LessonEditorProps {
@@ -206,14 +207,25 @@ export const LessonEditor: React.FC<LessonEditorProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setImportMode(!importMode)}
-          className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-bold flex items-center gap-1.5"
-        >
-          <FileText className="w-3.5 h-3.5 text-red-500" />
-          <span>{importMode ? 'STEP EDITOR' : 'IMPORT TEXT'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => navigate('lesson-studio', { classId })}
+            className="px-3 py-1.5 rounded-full border border-red-500/30 bg-red-50 dark:bg-red-950/20 font-mono text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5"
+            title="Upload PDF or diagram image to generate accessible formats"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-red-500" />
+            <span>ACCESSIBLE STUDIO (PDF/IMG)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportMode(!importMode)}
+            className="px-3 py-1.5 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 font-mono text-xs font-bold flex items-center gap-1.5"
+          >
+            <FileText className="w-3.5 h-3.5 text-red-500" />
+            <span>{importMode ? 'STEP EDITOR' : 'IMPORT TEXT'}</span>
+          </button>
+        </div>
       </div>
 
       {error && (

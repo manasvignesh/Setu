@@ -19,7 +19,7 @@ interface NavbarProps {
  * No clutter, just what's needed for the current state.
  */
 export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate }) => {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, selectDemoRole } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isTeacher = isAuthenticated && (user?.role === 'teacher' || user?.role === 'coordinator' || user?.role === 'admin');
@@ -93,62 +93,90 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate }) => {
             >
               Join Room
             </button>
+            {isTeacher && (
+              <button
+                onClick={() => navigate('lesson-studio')}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
+                  currentRoute === 'lesson-studio'
+                    ? 'bg-[#FF6B4A] text-white shadow-xs'
+                    : 'text-[#FF6B4A] hover:bg-[#FFF0EC]'
+                }`}
+              >
+                Lesson Studio
+              </button>
+            )}
           </nav>
 
-          {/* Right Actions — Context-aware, minimal */}
+          {/* Right Actions — Context-aware, minimal with Demo Role Switcher */}
           <div className="flex items-center gap-2">
             <AccessibilityToolbar />
 
-            {isAuthenticated ? (
-              <div className="flex items-center gap-2">
-                {/* Dashboard link */}
-                <button
-                  onClick={() => navigate(isTeacher ? 'teacher-dashboard' : 'dashboard')}
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#6B7280] hover:text-[#1A1A2E] hover:bg-black/[0.04] transition-all"
-                >
-                  <User className="w-3.5 h-3.5" />
-                  <span>{user?.full_name?.split(' ')[0]}</span>
-                </button>
+            {/* Dummy Role Switcher */}
+            <div className="hidden sm:flex items-center bg-slate-100/90 p-0.5 rounded-full border border-black/[0.06] text-xs font-semibold">
+              <button
+                onClick={() => {
+                  selectDemoRole('teacher');
+                  navigate('teacher-dashboard');
+                }}
+                className={`px-3 py-1 rounded-full transition-all ${
+                  user?.role === 'teacher'
+                    ? 'bg-white text-[#FF6B4A] shadow-xs font-bold'
+                    : 'text-[#6B7280] hover:text-[#1A1A2E]'
+                }`}
+                title="Switch to Demo Teacher (Anita Sharma)"
+              >
+                Teacher
+              </button>
+              <button
+                onClick={() => {
+                  selectDemoRole('student');
+                  navigate('dashboard');
+                }}
+                className={`px-3 py-1 rounded-full transition-all ${
+                  user?.role === 'student'
+                    ? 'bg-white text-[#0D7377] shadow-xs font-bold'
+                    : 'text-[#6B7280] hover:text-[#1A1A2E]'
+                }`}
+                title="Switch to Demo Student (Aarav Sharma)"
+              >
+                Student
+              </button>
+              <button
+                onClick={() => {
+                  selectDemoRole('coordinator');
+                  navigate('coordinator');
+                }}
+                className={`px-3 py-1 rounded-full transition-all ${
+                  user?.role === 'coordinator'
+                    ? 'bg-white text-[#4A90D9] shadow-xs font-bold'
+                    : 'text-[#6B7280] hover:text-[#1A1A2E]'
+                }`}
+                title="Switch to Demo Coordinator (Dr. Sunita Rao)"
+              >
+                Coordinator
+              </button>
+            </div>
 
-                {/* Settings */}
-                <button
-                  onClick={() => navigate('profile-setup')}
-                  className="p-2 rounded-full hover:bg-black/[0.04] text-[#6B7280] hover:text-[#1A1A2E] transition-colors"
-                  aria-label="Settings"
-                  title="Accessibility & Profile Settings"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
+            <div className="flex items-center gap-1.5">
+              {/* Dashboard link */}
+              <button
+                onClick={() => navigate(isTeacher ? 'teacher-dashboard' : 'dashboard')}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-[#6B7280] hover:text-[#1A1A2E] hover:bg-black/[0.04] transition-all"
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>{user?.full_name?.split(' ')[0]}</span>
+              </button>
 
-                {/* Sign out */}
-                <button
-                  onClick={() => {
-                    logout();
-                    navigate('home');
-                  }}
-                  className="p-2 rounded-full hover:bg-black/[0.04] text-[#6B7280] hover:text-[#1A1A2E] transition-colors"
-                  aria-label="Sign out"
-                  title="Sign out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate('login')}
-                  className="text-xs font-semibold text-[#6B7280] hover:text-[#1A1A2E] px-3 py-1.5 rounded-full hover:bg-black/[0.04] transition-all hidden sm:block"
-                >
-                  Sign In
-                </button>
-                <button
-                  onClick={() => navigate('signup')}
-                  className="btn-ios-primary text-xs py-2 px-4"
-                >
-                  Get Started
-                </button>
-              </div>
-            )}
+              {/* Settings */}
+              <button
+                onClick={() => navigate('profile-setup')}
+                className="p-2 rounded-full hover:bg-black/[0.04] text-[#6B7280] hover:text-[#1A1A2E] transition-colors"
+                aria-label="Settings"
+                title="Accessibility & Profile Settings"
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+            </div>
 
             {/* Mobile Menu */}
             <button
@@ -196,22 +224,55 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate }) => {
             👥 Join Room
           </button>
 
-          {!isAuthenticated && (
-            <>
+          <div className="pt-2 pb-1 border-t border-black/[0.06]">
+            <div className="text-[11px] font-bold text-[#6B7280] px-3 pb-1.5 uppercase tracking-wider">
+              Switch Demo Role
+            </div>
+            <div className="grid grid-cols-3 gap-1 px-1">
               <button
-                onClick={() => { navigate('signup'); setMobileMenuOpen(false); }}
-                className="w-full text-left px-3 py-2.5 text-sm font-semibold text-[#FF6B4A] rounded-xl hover:bg-[#FFF0EC]"
+                onClick={() => {
+                  selectDemoRole('teacher');
+                  navigate('teacher-dashboard');
+                  setMobileMenuOpen(false);
+                }}
+                className={`text-xs py-2 rounded-xl font-bold transition-all ${
+                  user?.role === 'teacher'
+                    ? 'bg-[#FF6B4A]/10 text-[#FF6B4A] ring-1 ring-[#FF6B4A]'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                }`}
               >
-                Get Started
+                Teacher
               </button>
               <button
-                onClick={() => { navigate('login'); setMobileMenuOpen(false); }}
-                className="w-full text-left px-3 py-2.5 text-sm font-medium text-[#6B7280] rounded-xl hover:bg-black/[0.04]"
+                onClick={() => {
+                  selectDemoRole('student');
+                  navigate('dashboard');
+                  setMobileMenuOpen(false);
+                }}
+                className={`text-xs py-2 rounded-xl font-bold transition-all ${
+                  user?.role === 'student'
+                    ? 'bg-[#0D7377]/10 text-[#0D7377] ring-1 ring-[#0D7377]'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                }`}
               >
-                Sign In
+                Student
               </button>
-            </>
-          )}
+              <button
+                onClick={() => {
+                  selectDemoRole('coordinator');
+                  navigate('coordinator');
+                  setMobileMenuOpen(false);
+                }}
+                className={`text-xs py-2 rounded-xl font-bold transition-all ${
+                  user?.role === 'coordinator'
+                    ? 'bg-blue-50 text-blue-600 ring-1 ring-blue-500'
+                    : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
 
           {isAuthenticated && (
             <>
@@ -228,12 +289,20 @@ export const Navbar: React.FC<NavbarProps> = ({ currentRoute, navigate }) => {
                 Join Classroom
               </button>
               {isTeacher && (
-                <button
-                  onClick={() => { navigate('classes'); setMobileMenuOpen(false); }}
-                  className="w-full text-left px-3 py-2.5 text-sm font-medium text-[#1A1A2E] rounded-xl hover:bg-black/[0.04]"
-                >
-                  My Classes
-                </button>
+                <>
+                  <button
+                    onClick={() => { navigate('classes'); setMobileMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2.5 text-sm font-medium text-[#1A1A2E] rounded-xl hover:bg-black/[0.04]"
+                  >
+                    My Classes
+                  </button>
+                  <button
+                    onClick={() => { navigate('lesson-studio'); setMobileMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2.5 text-sm font-semibold text-[#FF6B4A] rounded-xl hover:bg-[#FFF0EC]"
+                  >
+                    ✨ Accessible Lesson Studio
+                  </button>
+                </>
               )}
               <button
                 onClick={() => { navigate('profile-setup'); setMobileMenuOpen(false); }}

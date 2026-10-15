@@ -83,7 +83,7 @@ const DISABILITY_OPTIONS: DisabilityOption[] = [
 ];
 
 export const SignUpPage: React.FC<SignUpPageProps> = ({ navigate }) => {
-  const { login } = useAuth();
+  const { login, selectDemoRole } = useAuth();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [fullName, setFullName] = useState('');
@@ -135,12 +135,17 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigate }) => {
     setLoading(true);
     setError(null);
 
+    const formattedDisabilities = selectedDisabilities.map((d) => ({
+      disability_type: d,
+      severity: 'moderate'
+    }));
+
     const payload = {
       full_name: fullName.trim(),
       email: email.trim().toLowerCase(),
       password,
       role: selectedRole,
-      disabilities: selectedDisabilities
+      disabilities: formattedDisabilities
     };
 
     // Store in local storage for local state persistence
@@ -158,26 +163,42 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigate }) => {
 
       if (res.ok) {
         const data = await res.json();
-        const mappedRole: Role = selectedRole === 'teacher' ? 'teacher' : 'student';
+        const mappedRole: Role =
+          (data.role as Role) ||
+          (selectedRole === 'teacher' ? 'teacher' : selectedRole === 'adult_learner' ? 'adult_learner' : 'student');
         const user: User = {
           id: data.user_id || 'user-' + Date.now(),
-          email: email.trim(),
+          email: data.email || email.trim(),
           full_name: data.full_name || fullName.trim(),
           role: mappedRole,
           school_id: data.school_id || null,
+          onboarding_completed: true,
           created_at: new Date().toISOString()
         };
         login(data.access_token || 'setu-session-token-' + Date.now(), user);
-        navigate('dashboard');
+        if (mappedRole === 'teacher') {
+          navigate('teacher-dashboard');
+        } else {
+          navigate('dashboard');
+        }
+        return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 400 || res.status === 403 || res.status === 422) {
+          throw new Error(errData.detail || 'Registration failed. Please check your details.');
+        }
+      }
+    } catch (err: any) {
+      if (err.message && !err.message.includes('Failed to fetch')) {
+        setError(err.message);
+        setLoading(false);
         return;
       }
-    } catch {
-      // Fallback if network or onboarding route isn't created yet
     }
 
-    // Try standard auth register endpoint as fallback
+    // Try standard auth register endpoint as fallback if onboarding endpoint was unreachable
     try {
-      const authRole = selectedRole === 'teacher' ? 'teacher' : 'student';
+      const authRole = selectedRole === 'teacher' ? 'teacher' : selectedRole === 'adult_learner' ? 'adult_learner' : 'student';
       const authRes = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,7 +206,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigate }) => {
           email: email.trim().toLowerCase(),
           password,
           full_name: fullName.trim(),
-          role: authRole
+          role: authRole,
+          disabilities: formattedDisabilities
         })
       });
 
@@ -193,14 +215,19 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigate }) => {
         const authData = await authRes.json();
         const user: User = {
           id: authData.user_id,
-          email: email.trim(),
+          email: authData.email || email.trim(),
           full_name: authData.full_name,
           role: authData.role as Role,
           school_id: authData.school_id,
+          onboarding_completed: true,
           created_at: new Date().toISOString()
         };
         login(authData.access_token, user);
-        navigate('dashboard');
+        if (authData.role === 'teacher') {
+          navigate('teacher-dashboard');
+        } else {
+          navigate('dashboard');
+        }
       } else {
         const errData = await authRes.json().catch(() => ({}));
         throw new Error(errData.detail || 'Registration request could not be completed.');
@@ -257,6 +284,50 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ navigate }) => {
               <p className="text-sm text-[#6B7280]">
                 Begin your barrier-free learning journey.
               </p>
+            </div>
+
+            {/* Quick Demo Bypass Banner */}
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+                  ⚡ Skip Signup — Instant Demo Entry
+                </span>
+                <span className="text-[10px] bg-amber-200/60 text-amber-900 px-2 py-0.5 rounded-full font-semibold">
+                  Pre-configured
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectDemoRole('teacher');
+                    navigate('teacher-dashboard');
+                  }}
+                  className="px-2 py-2 rounded-xl bg-white border border-amber-200 hover:border-[#FF6B4A] hover:bg-[#FF6B4A]/5 text-[#1A1A2E] text-xs font-semibold text-center transition-all shadow-xs"
+                >
+                  👩‍🏫 Teacher
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectDemoRole('student');
+                    navigate('dashboard');
+                  }}
+                  className="px-2 py-2 rounded-xl bg-white border border-amber-200 hover:border-[#0D7377] hover:bg-[#0D7377]/5 text-[#1A1A2E] text-xs font-semibold text-center transition-all shadow-xs"
+                >
+                  🧑‍🎓 Student
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectDemoRole('coordinator');
+                    navigate('coordinator');
+                  }}
+                  className="px-2 py-2 rounded-xl bg-white border border-amber-200 hover:border-[#4A90D9] hover:bg-[#4A90D9]/5 text-[#1A1A2E] text-xs font-semibold text-center transition-all shadow-xs"
+                >
+                  🏛️ Admin
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleStep1Submit} className="space-y-4">

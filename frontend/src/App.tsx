@@ -23,6 +23,7 @@ import { CoordinatorPortal } from './pages/CoordinatorPortal';
 import { PersonalCaptionsPage } from './pages/PersonalCaptionsPage';
 import { CommunicatePage } from './pages/CommunicatePage';
 import { AccessibleLessonsPage } from './pages/AccessibleLessonsPage';
+import { AccessibleLessonStudio } from './pages/AccessibleLessonStudio';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, user } = useAuth();
@@ -105,6 +106,12 @@ const AppContent: React.FC = () => {
       )}
       {currentRoute === 'communicate' && (
         <CommunicatePage navigate={navigate} />
+      )}
+      {(currentRoute === 'lesson-studio' || currentRoute === 'accessible-lesson-studio') && (
+        <AccessibleLessonStudio
+          navigate={navigate}
+          initialClassId={routeData?.classId}
+        />
       )}
       {(currentRoute === 'learn' || currentRoute === 'accessible-lessons') && (
         <AccessibleLessonsPage navigate={navigate} />

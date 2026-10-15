@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useAccessibility } from '../context/AccessibilityContext';
+import { AudioWaveVisualizer } from '../components/AudioWaveVisualizer';
 import {
   Mic,
   MicOff,
@@ -16,7 +17,8 @@ import {
   Sparkles,
   ArrowLeft,
   Radio,
-  FileText
+  FileText,
+  PlayCircle
 } from 'lucide-react';
 
 interface CaptionItem {
@@ -235,6 +237,20 @@ export const PersonalCaptionsPage: React.FC<PersonalCaptionsPageProps> = ({ navi
     setCaptions([]);
   };
 
+  const handleSimulateDemo = () => {
+    const demoSentences = [
+      "Welcome to this lecture on the fundamentals of electromagnetic wave propagation.",
+      "Light waves travel through a vacuum at approximately 300,000 kilometers per second.",
+      "When light encounters a denser medium like water or glass, it refracts and changes velocity."
+    ];
+    demoSentences.forEach((s, idx) => {
+      setTimeout(() => {
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        setCaptions(prev => [...prev, { id: `sim-${Date.now()}-${idx}`, text: s, timestamp: now }]);
+      }, idx * 1200);
+    });
+  };
+
   const isLive = streamStatus === 'listening' || isBrowserListening;
 
   const fontClasses = {
@@ -277,16 +293,18 @@ export const PersonalCaptionsPage: React.FC<PersonalCaptionsPageProps> = ({ navi
           </div>
         </div>
 
-        {/* Live Audio Status Indicator */}
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${
-            isLive
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-              : 'bg-slate-100 text-slate-700 border-slate-300'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-            <span>{isLive ? 'Microphone Active' : 'Microphone Inactive'}</span>
-          </div>
+        {/* Live Audio Status Indicator & Controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <AudioWaveVisualizer isActive={isLive} />
+
+          <button
+            onClick={handleSimulateDemo}
+            className="px-3 py-1.5 rounded-full text-xs font-bold border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100 flex items-center gap-1.5 transition"
+            title="Simulate speech without microphone"
+          >
+            <PlayCircle className="w-3.5 h-3.5" />
+            <span>Demo Speech</span>
+          </button>
 
           <button
             onClick={toggleListening}
